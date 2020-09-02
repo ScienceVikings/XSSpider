@@ -1,0 +1,99 @@
+service: {{Your_Service_Name_Here}}
+
+custom:
+  s3Bucket_Payload: {{S3_Payload_Bucket}}
+  s3Bucket_Server: {{S3_Server_Bucket}}
+  s3Sync:
+    - bucketName: ${self:custom.s3Bucket_Payload}
+      localDir: static
+
+    - bucketName: ${self:custom.s3Bucket_Server}
+      localDir: server
+
+plugins:
+  - serverless-s3-sync
+provider:
+  name: aws
+  runtime: python3.8
+  iamRoleStatements:
+    - Effect: "Allow"
+      Action:
+       - s3:PutObject
+      Resource: "arn:aws:s3:::${self:custom.s3Bucket_Server}/*"
+
+functions:
+  storeData:
+    handler: handler.storeData
+    events:
+      - http:
+          path: storeData
+          method: post
+          cors: true
+
+resources:
+  Description: XSSpider CloudFormation Stack
+  Resources:
+    PayloadS3Bucket:
+      Type: AWS::S3::Bucket
+      Properties:
+        BucketName: ${self:custom.s3Bucket_Payload}
+        AccessControl: PublicRead
+        WebsiteConfiguration:
+          IndexDocument: index.html
+          ErrorDocument: index.html
+    PayloadS3BucketPolicy:
+      Type: AWS::S3::BucketPolicy
+      Properties:
+        Bucket:
+          Ref: PayloadS3Bucket
+        PolicyDocument:
+          Statement:
+            - Sid: PublicReadGetObject
+              Effect: Allow
+              Principal: "*"
+              Action:
+              - s3:GetObject
+              Resource: arn:aws:s3:::${self:custom.s3Bucket_Payload}/*
+    ServerS3Bucket:
+      Type: AWS::S3::Bucket
+      Properties:
+        BucketName: ${self:custom.s3Bucket_Server}
+        AccessControl: Private
+    XSSpiderCloudFrontDistribution:
+      Type: AWS::CloudFront::Distribution
+      Properties:
+        DistributionConfig:
+          Origins:
+            - DomainName: ${self:custom.s3Bucket_Payload}.s3.amazonaws.com
+              Id: XSSpiderWebApp
+              CustomOriginConfig:
+                HTTPPort: 80
+                HTTPSPort: 443
+                OriginProtocolPolicy: https-only
+          Enabled: 'true'
+          DefaultRootObject: index.html
+          CustomErrorResponses:
+            - ErrorCode: 404
+              ResponseCode: 200
+              ResponsePagePath: /index.html
+          DefaultCacheBehavior:
+            AllowedMethods:
+              - DELETE
+              - GET
+              - HEAD
+              - OPTIONS
+              - PATCH
+              - POST
+              - PUT
+            TargetOriginId: XSSpiderWebApp
+            ForwardedValues:
+              QueryString: 'false'
+              Cookies:
+                Forward: none
+            ViewerProtocolPolicy: redirect-to-https
+          ViewerCertificate:
+            CloudFrontDefaultCertificate: 'true'
+  Outputs:
+    XSSpiderCloudFrontDistributionOutput:
+      Value:
+        'Fn::GetAtt': [ XSSpiderCloudFrontDistribution, DomainName ]

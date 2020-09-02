@@ -1,0 +1,14 @@
+div {
+    text-align: center;
+    margin: 0;
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+}
+
+h1 {
+    font-family: Consolas,monaco,monospace;
+    font-size: 100px;
+    margin: 0;
+  }
